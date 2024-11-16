@@ -25,6 +25,8 @@ func main() {
 	dbProdHost := os.Getenv("PROD_DB_HOST")
 	dbPort := os.Getenv("DB_PORT")
 
+	fmt.Println(dbUser)
+
 	connDevStr := fmt.Sprintf("user=%s password=%s dbname=%s host=%s port=%s sslmode=disable",
 		dbUser, dbPassword, dbName, dbDevHost, dbPort)
 

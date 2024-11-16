@@ -5,16 +5,12 @@ import (
 	"log"
 	"os"
 
+	"data_comparison/models"
 	"data_comparison/utils" // Хранит функцию поиска пересечения
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq" // Драйвер для PostgreSQL
 )
-
-type VariableSelect struct {
-	SchemaName string `db:"schema_name"`
-	TableName  string `db:"table_name"`
-}
 
 func main() {
 	err := godotenv.Load()
@@ -46,7 +42,7 @@ func main() {
 	}
 	defer prodDB.Close()
 
-	var variables []VariableSelect
+	var variables []models.VariableSelect
 	err = devDB.Select(&variables, "SELECT schema_name, table_name FROM ods.variables_select")
 	if err != nil {
 		log.Fatal("Ошибка при выполнении запроса: ", err)
