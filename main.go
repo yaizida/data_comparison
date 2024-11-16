@@ -7,7 +7,6 @@ import (
 
 	"data_comparison/utils" // Хранит функцию поиска пересечения
 
-	// Удобнее работать с БД
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq" // Драйвер для PostgreSQL
 )
@@ -59,22 +58,24 @@ func main() {
 
 		fmt.Println(pgQuery)
 
-		var devRows, prodRows [][]interface{}
-		if err := devDB.Select(&devRows, pgQuery); err != nil {
+		devRows, err := utils.FetchRowsAsMap(devDB, pgQuery)
+		if err != nil {
 			log.Fatal("Ошибка при выполнении запроса к dev БД: ", err)
 		}
-		if err := prodDB.Select(&prodRows, pgQuery); err != nil {
+
+		prodRows, err := utils.FetchRowsAsMap(prodDB, pgQuery)
+		if err != nil {
 			log.Fatal("Ошибка при выполнении запроса к prod БД: ", err)
 		}
 
 		devSet := make(map[string]struct{})
 		for _, row := range devRows {
-			devSet[fmt.Sprint(row...)] = struct{}{}
+			devSet[fmt.Sprint(row)] = struct{}{}
 		}
 
 		prodSet := make(map[string]struct{})
 		for _, row := range prodRows {
-			prodSet[fmt.Sprint(row...)] = struct{}{}
+			prodSet[fmt.Sprint(row)] = struct{}{}
 		}
 
 		fmt.Println(len(prodRows))
