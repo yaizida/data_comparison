@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"data_comparison/models"
 	"data_comparison/utils" // Хранит функцию поиска пересечения
@@ -48,32 +49,69 @@ func main() {
 		log.Fatal("Ошибка при выполнении запроса: ", err)
 	}
 
-	for _, record := range variables {
-		pgTable := fmt.Sprintf("%s.%s", record.SchemaName, record.TableName)
-		pgQuery := fmt.Sprintf("SELECT * FROM %s", pgTable)
+	for _, metaData := range variables {
+		// Формируем запрос для получения списка колонок
+		columnsQuery := `
+    	 SELECT column_name
+    	 FROM information_schema.columns
+    	 WHERE table_name = $1 AND table_schema = $2;
+    	`
 
+		// Выполняем запрос
+		rows, err := devDB.Query(columnsQuery, metaData.TableName, metaData.SchemaName)
+		if err != nil {
+			log.Fatalf("Ошибка при получении списка колонок для таблицы %s.%s: %v", metaData.SchemaName, metaData.TableName, err)
+		}
+		defer rows.Close()
+
+		// Обрабатываем результаты
+		var columns []string
+		for rows.Next() {
+			var columnName string
+			err := rows.Scan(&columnName)
+			if err != nil {
+				log.Fatalf("Ошибка при чтении колонок для таблицы %s.%s: %v", metaData.SchemaName, metaData.TableName, err)
+			}
+			columns = append(columns, columnName)
+		}
+
+		if len(columns) == 0 {
+			fmt.Printf("Ошибка: columns пуст. \nТаблица: %s.%s\n", metaData.SchemaName, metaData.TableName)
+			continue
+		}
+
+		formattedColumns := make([]string, len(columns))
+		for i, col := range columns {
+			formattedColumns[i] = fmt.Sprintf("COALESCE(%s::text, '')", col) // Используем COALESCE для обработки NULL
+		}
+		joinedColumns := strings.Join(formattedColumns, " || ',' || ") // Объединяем колонки в одну строку
+
+		pgQuery := fmt.Sprintf(`SELECT md5(string_agg(%s, ',')) AS row_hash
+							FROM %s.%s AS as2
+							GROUP BY %s;`,
+			joinedColumns,
+			metaData.SchemaName,
+			metaData.TableName,
+			columns[0],
+		)
 		fmt.Println(pgQuery)
 
 		devRows, err := utils.FetchRowsAsMap(devDB, pgQuery)
 		if err != nil {
 			log.Fatal("Ошибка при выполнении запроса к dev БД: ", err)
 		}
-
 		prodRows, err := utils.FetchRowsAsMap(prodDB, pgQuery)
 		if err != nil {
 			log.Fatal("Ошибка при выполнении запроса к prod БД: ", err)
 		}
-
 		devSet := make(map[string]struct{})
 		for _, row := range devRows {
 			devSet[fmt.Sprint(row)] = struct{}{}
 		}
-
 		prodSet := make(map[string]struct{})
 		for _, row := range prodRows {
 			prodSet[fmt.Sprint(row)] = struct{}{}
 		}
-
 		fmt.Println(len(prodRows))
 		diffCount := len(prodRows) - len(utils.IntersectSets(devSet, prodSet))
 		fmt.Println(diffCount)
