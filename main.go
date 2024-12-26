@@ -44,7 +44,8 @@ func main() {
 	defer prodDB.Close()
 
 	var variables []models.VariableSelect
-	err = devDB.Select(&variables, "SELECT schema_name, table_name FROM ods.variables_select")
+	// Здесь замените на имя таблицы где у вас хранятся таблицы для сравнений
+	err = devDB.Select(&variables, "SELECT schema_name, table_name FROM ods.variables_select") 
 	if err != nil {
 		log.Fatal("Ошибка при выполнении запроса: ", err)
 	}
